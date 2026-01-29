@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Techzee | RAG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            /* Slate 900 */
+            color: #e2e8f0;
+            /* Slate 200 */
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        .chat-bubble {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loader {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="glass-panel h-16 flex items-center justify-between px-6 z-10 shrink-0 border-b border-slate-700">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white mono">TZ
+            </div>
+            <h1 class="text-lg font-semibold tracking-wide">Tech<span class="text-blue-400">zee</span> <span
+                    class="text-xs text-slate-400 font-normal px-2 py-0.5 bg-slate-800 rounded border border-slate-700">Local
+                    RAG</span></h1>
+        </div>
+        <div class="text-xs text-slate-500 mono" id="model-status">
+            Getting Status...
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- Sidebar / Upload Zone -->
+        <aside
+            class="w-80 bg-slate-900 border-r border-slate-700 flex flex-col p-4 shrink-0 transition-all duration-300"
+            id="sidebar">
+            <div class="mb-6">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Knowledge Base</h2>
+
+                <!-- Droppable Area -->
+                <div id="drop-zone"
+                    class="border-2 border-dashed border-slate-600 rounded-xl p-6 text-center transition hover:border-blue-500 hover:bg-slate-800 cursor-pointer group">
+                    <input type="file" id="file-input" class="hidden" accept=".pdf,.txt,.md">
+                    <svg class="w-8 h-8 mx-auto mb-2 text-slate-500 group-hover:text-blue-400" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                        </path>
+                    </svg>
+                    <p class="text-sm text-slate-400">Drag & Drop or <span
+                            class="text-blue-400 font-semibold">Click</span></p>
+                    <p class="text-xs text-slate-600 mt-1">PDF, TXT, MD</p>
+                </div>
+            </div>
+
+            <!-- Upload Status List -->
+            <div id="file-list" class="flex-1 overflow-y-auto space-y-2">
+                <!-- Status Item Template -->
+                <!-- <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700 flex justify-between items-center">
+                    <div class="truncate">
+                        <p class="text-sm text-slate-200 truncate">research_alpha.pdf</p>
+                        <p class="text-xs text-green-400">Indexed • 45 chunks</p>
+                    </div>
+                </div> -->
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-slate-800">
+                <div class="flex items-center space-x-2 text-xs text-slate-500">
+                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span>System Online</span>
+                    <span class="ml-auto">v1.0.0</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Chat Area -->
+        <main class="flex-1 flex flex-col relative bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800">
+
+            <!-- Messages Container -->
+            <div id="chat-container" class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
+                <!-- Welcome Message -->
+                <div class="flex gap-4 max-w-3xl mx-auto">
+                    <div
+                        class="w-8 h-8 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center font-bold text-xs">
+                        AI</div>
+                    <div class="glass-panel p-4 rounded-2xl rounded-tl-none max-w-2xl">
+                        <p class="text-slate-200">Hello, I am your scientific research assistant. Upload documents to
+                            the left to expand my knowledge base.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-6 pt-0">
+                <div
+                    class="max-w-3xl mx-auto relative glass-panel rounded-xl p-2 flex items-center gap-2 border border-slate-600 shadow-2xl">
+                    <input type="text" id="user-input" placeholder="Ask about the research..."
+                        class="flex-1 bg-transparent border-none focus:ring-0 text-slate-200 placeholder-slate-500 px-4 py-3"
+                        autocomplete="off">
+                    <button id="send-btn"
+                        class="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p class="text-center text-xs text-slate-600 mt-2 mono">DeepSeek-R1:14b • Offline Mode</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Logic -->
+    <script>
+        // --- Variables ---
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const modelStatus = document.getElementById('model-status');
+
+        // --- File Upload Logic ---
+        function handleFiles(files) {
+            Array.from(files).forEach(uploadFile);
+        }
+
+        async function uploadFile(file) {
+            // Create UI Element
+            const div = document.createElement('div');
+            div.className = "bg-slate-800/50 p-3 rounded-lg border border-slate-700 flex justify-between items-center mb-2 animate-pulse";
+            div.innerHTML = `
+                <div class="truncate w-full">
+                    <p class="text-sm text-slate-200 truncate">${file.name}</p>
+                    <p class="text-xs text-blue-400 flex items-center gap-2">
+                        <span class="loader"></span> Processing...
+                    </p>
+                </div>
+            `;
+            fileList.prepend(div);
+
+            // Send to Backend
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                // Update UI
+                div.classList.remove('animate-pulse');
+                if (result.success) {
+                    div.innerHTML = `
+                        <div class="truncate">
+                            <p class="text-sm text-slate-200 truncate">${file.name}</p>
+                            <p class="text-xs text-green-400">Indexed • ${result.chunks} chunks</p>
+                        </div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                       <div class="truncate">
+                            <p class="text-sm text-red-300 truncate">${file.name}</p>
+                            <p class="text-xs text-red-400">Error: ${result.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                div.innerHTML = `<p class="text-xs text-red-500">Network Error</p>`;
+            }
+        }
+
+        // Drag & Drop Events
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('bg-slate-800', 'border-blue-500'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-slate-800', 'border-blue-500'));
+        dropZone.addEventListener('drop', (e) => {
+            dropZone.classList.remove('bg-slate-800', 'border-blue-500');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        // --- Chat Logic ---
+        function appendMessage(text, isUser) {
+            const wrapper = document.createElement('div');
+            wrapper.className = "flex gap-4 max-w-3xl mx-auto chat-bubble mb-6";
+
+            if (isUser) {
+                wrapper.innerHTML = `
+                    <div class="glass-panel p-4 rounded-2xl rounded-tr-none ml-auto bg-blue-600/20 border-blue-500/30 max-w-2xl">
+                        <p class="text-slate-100">${text}</p>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center font-bold text-xs">YOU</div>
+                `;
+            } else {
+                wrapper.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center font-bold text-xs animate-bounce">AI</div>
+                    <div class="glass-panel p-4 rounded-2xl rounded-tl-none max-w-2xl w-full">
+                        <div class="prose prose-invert prose-sm max-w-none text-slate-200 leading-relaxed message-content"></div>
+                    </div>
+                `;
+            }
+            chatContainer.appendChild(wrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return wrapper.querySelector('.message-content');
+        }
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            userInput.value = '';
+            appendMessage(text, true);
+            const responseDiv = appendMessage('', false);
+
+            // Streaming Fetch
+            try {
+                const response = await fetch('/chat_stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                // Stop the bounce animation
+                const avatar = responseDiv.parentElement.parentElement.querySelector('.w-8');
+                avatar.classList.remove('animate-bounce');
+
+                let fullText = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    fullText += chunk;
+                    responseDiv.innerHTML = formatText(fullText); // Simple formatting
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            } catch (err) {
+                responseDiv.innerHTML = `<span class="text-red-400">Connection Failed: ${err.message}</span>`;
+            }
+        }
+
+        function formatText(text) {
+            // Very basic markdown parsing
+            return text
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\[Source: (.*?)\]/g, '<span class="text-xs text-blue-300 bg-blue-900/30 px-1 rounded ml-1 border border-blue-800">📄 $1</span>');
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Set initial status
+        modelStatus.innerText = "Model: deepseek-r1:14b (Ready)";
+    </script>
+</body>
+
+</html>

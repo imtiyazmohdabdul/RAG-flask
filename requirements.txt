@@ -1,0 +1,10 @@
+flask
+chromadb
+sentence-transformers
+pypdf
+python-dotenv
+requests
+xgboost # Optional, sometimes pulled by others, keeping it minimal
+scikit-learn
+tqdm
+gunicorn
